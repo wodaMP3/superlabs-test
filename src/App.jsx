@@ -9,28 +9,43 @@ const App = () => {
   const [isShaking, setIsShaking] = useState(false);
 
   useEffect(() => {
-    if ('Accelerometer' in window) {
-      try {
-        const accelerometer = new Accelerometer({ frequency: 60 });
-        accelerometer.addEventListener('reading', () => {
-          const acceleration = Math.sqrt(
-            accelerometer.x ** 2 + accelerometer.y ** 2 + accelerometer.z ** 2
-          );
-          
-          if (acceleration > 15) { // Условие для встряхивания
-            setShakeCount((prevCount) => prevCount + 1);
-            setIsShaking(true);
-            setTimeout(() => setIsShaking(false), 300); // Остановка анимации после встряхивания
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      // разрешение на доступ к данным датчиков
+      DeviceMotionEvent.requestPermission()
+        .then((response) => {
+          if (response === 'granted') {
+            window.addEventListener('devicemotion', handleMotion);
+          } else {
+            setError('Доступ к датчикам движения отклонен.');
           }
+        })
+        .catch(() => {
+          setError('Ошибка доступа к датчикам движения.');
         });
-        accelerometer.start();
-      } catch (err) {
-        setError('Ошибка доступа к датчикам движения.');
-      }
+    } else if (typeof DeviceMotionEvent !== 'undefined') {
+      window.addEventListener('devicemotion', handleMotion);
     } else {
       setError('Датчики движения не поддерживаются на этом устройстве.');
     }
+
+    return () => {
+      window.removeEventListener('devicemotion', handleMotion);
+    };
   }, []);
+
+  const handleMotion = (event) => {
+    const acceleration = Math.sqrt(
+      event.acceleration.x ** 2 + event.acceleration.y ** 2 + event.acceleration.z ** 2
+    );
+
+    if (acceleration > 15) { // Порог встряхивания
+      setShakeCount((prevCount) => prevCount + 1);
+      setIsShaking(true);
+
+      // Остановка анимации через 500 мс
+      setTimeout(() => setIsShaking(false), 500);
+    }
+  };
 
   const resetCounter = () => setShakeCount(0);
 
@@ -42,8 +57,8 @@ const App = () => {
       ) : (
         <>
           <div
-            className={`w-32 h-32 flex items-center justify-center rounded-full bg-blue-500 text-white text-3xl ${
-              isShaking ? 'animate-pulse' : ''
+            className={`w-32 h-32 flex items-center justify-center rounded-full bg-blue-500 text-white text-3xl transition-transform ${
+              isShaking ? 'animate-bounce' : ''
             }`}
           >
             {shakeCount}
